@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image, RefreshControl } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image, RefreshControl, Alert } from 'react-native';
 import axios from 'axios';
+import { getFlagPng } from './importFlagPng';
+import { useNavigation } from '@react-navigation/native';
+import { router } from 'expo-router'
 
 interface StateData {
     "ID State": string;
@@ -11,12 +14,44 @@ interface StateData {
     "Slug State": string;
 }
 
+interface MapScreenParams {
+    latitude: any;
+    longitude: any;
+}
+
 const ListState: React.FC = () => {
     const [data, setData] = useState<StateData[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [page, setPage] = useState<number>(1);
-    const itemsPerPage: number = 10;
     const [refreshing, setRefreshing] = useState<boolean>(false);
+    const [scrollPosition, setScrollPosition] = useState<number>(0);
+
+    const itemsPerPage: number = 10;
+
+    const handleMoreInfo = async (state: string) => {
+        try {
+            const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${state}&key=AIzaSyC9jKK0YxiYyxlARGhkgCRHHvE9kU9jBKo`);
+            const { results } = response.data;
+            
+            if (results.length > 0) {
+                const { lat, lng } = results[0].geometry.location;
+                const params: any = {
+                    latitude: lat,
+                    longitude: lng,
+                    address: results[0].formatted_address
+                };
+                router.push({ pathname: `/maps`, params: params })
+
+            } else {
+                Alert.alert('Error', 'Location not found');
+            }
+        } catch (error) {
+            console.error('Error fetching location:', error);
+            Alert.alert('Error', 'Failed to fetch location. Using default coordinates for Washington D.C.');
+        }
+    };
+    
+
 
     useEffect(() => {
         fetchData();
@@ -47,14 +82,17 @@ const ListState: React.FC = () => {
 
     const handleScroll = ({ nativeEvent }: any): void => {
         const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+        const currentPositionY = contentOffset.y;
 
-        if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 20) {
-            loadMoreData();
+        if (currentPositionY <= 0 && currentPositionY < scrollPosition) {
+            setRefreshing(true);
+            onRefresh();
         }
+
+        setScrollPosition(currentPositionY);
     };
 
     const onRefresh = (): void => {
-        setRefreshing(true);
         setData([]);
         setPage(1);
         fetchData().then(() => setRefreshing(false));
@@ -65,17 +103,24 @@ const ListState: React.FC = () => {
     };
 
     const renderItem = ({ item }: { item: StateData }) => {
+        const flagUrl = getFlagPng(item["Slug State"]);
+
         return (
             <View style={styles.card}>
-                <Image
-                    source={{ uri: `https://restcountries.com/data/${item["Slug State"].toLowerCase()}.svg` }}
-                    style={styles.image}
-                />
                 <View style={styles.cardContent}>
+                    <View style={styles.imageWrapper}>
+                        {flagUrl && (
+                            <Image
+                                source={flagUrl}
+                                style={styles.image}
+                                resizeMode="cover"
+                            />
+                        )}
+                    </View>
                     <Text style={styles.state}>{item.State}</Text>
                     <Text style={styles.year}>Year: {item.Year}</Text>
                     <Text style={styles.population}>Population: {formatPopulation(item.Population)}</Text>
-                    <TouchableOpacity style={styles.button}>
+                    <TouchableOpacity style={styles.button} onPress={() => handleMoreInfo(item.State)}>
                         <Text style={styles.buttonText}>More info</Text>
                     </TouchableOpacity>
                 </View>
@@ -88,9 +133,10 @@ const ListState: React.FC = () => {
             <FlatList
                 data={data}
                 renderItem={renderItem}
-                keyExtractor={item => item["ID State"]}
+                keyExtractor={(item, index) => item["ID State"] + index}
                 onEndReached={loadMoreData}
                 onEndReachedThreshold={0.1}
+                onScroll={handleScroll}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
@@ -99,27 +145,28 @@ const ListState: React.FC = () => {
     );
 };
 
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-        padding: 10,
     },
     card: {
-        backgroundColor: '#f8f8f8',
+        backgroundColor: '#DDDDDD',
         borderRadius: 8,
         marginBottom: 15,
         overflow: 'hidden',
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    image: {
-        width: 100,
-        height: 100,
     },
     cardContent: {
-        flex: 1,
         padding: 15,
+    },
+    imageWrapper: {
+        padding: 10
+    },
+    image: {
+        flex: 1,
+        width: 'auto',
+        height: 200,
     },
     state: {
         fontSize: 20,
@@ -136,7 +183,7 @@ const styles = StyleSheet.create({
     },
     button: {
         marginTop: 10,
-        backgroundColor: '#007BFF',
+        backgroundColor: '#76885B',
         paddingVertical: 10,
         borderRadius: 5,
     },
