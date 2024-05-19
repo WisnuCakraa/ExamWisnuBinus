@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image, RefreshControl, Alert } from 'react-native';
 import axios from 'axios';
 import { getFlagPng } from './importFlagPng';
-import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router'
 
 interface StateData {
@@ -12,11 +11,6 @@ interface StateData {
     "Year": string;
     "Population": number;
     "Slug State": string;
-}
-
-interface MapScreenParams {
-    latitude: any;
-    longitude: any;
 }
 
 const ListState: React.FC = () => {
@@ -30,7 +24,7 @@ const ListState: React.FC = () => {
 
     const handleMoreInfo = async (state: string) => {
         try {
-            const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${state}&key=AIzaSyC9jKK0YxiYyxlARGhkgCRHHvE9kU9jBKo`);
+            const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${state}&key=YOUR_API_KEY`);
             const { results } = response.data;
             
             if (results.length > 0) {
@@ -121,7 +115,7 @@ const ListState: React.FC = () => {
                     <Text style={styles.year}>Year: {item.Year}</Text>
                     <Text style={styles.population}>Population: {formatPopulation(item.Population)}</Text>
                     <TouchableOpacity style={styles.button} onPress={() => handleMoreInfo(item.State)}>
-                        <Text style={styles.buttonText}>More info</Text>
+                        <Text style={styles.buttonText}>Go To Maps</Text>
                     </TouchableOpacity>
                 </View>
             </View>
